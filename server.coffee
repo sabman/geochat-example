@@ -43,28 +43,28 @@ io.sockets.on 'connection', (socket) ->
       chat_data = {user: record, conversation: message}
       socket.broadcast.send JSON.stringify(chat_data) # forwards message to all the clients except the one that emitted the "broadcast" event
 
-  socket.on 'addUser', (message) -> 
-    # post the data to SpacialDB and 
+  socket.on 'addUser', (message) ->
     input =
       geometry: { type: "Point", coordinates: [message.lng, message.lat]}
       properties: { name : message.name, location: message.location, email: message.email, clientId: clientId}
-    post_url = "https://api.spacialdb.com/1/users/shoaib_burq/layers/characters?key=#{lyr_config_characters.acl.post}"
+    Character.create input, (new_record) ->
+      new_rec = JSON.parse(new_record)
+      Character.find {id: new_rec.id}, (record) ->
+        socket.broadcast.emit 'newUser', JSON.stringify(record)
+
+
+Character =
+  create: (attrs, callback) ->
+    # post the data to SpacialDB
+    post_url = "#{lyr_config_characters.api_url}?key=#{lyr_config_characters.acl.post}"
     req =
-      method: "POST", uri: post_url, body: JSON.stringify(input)
+      method: "POST", uri: post_url, body: JSON.stringify(attrs)
       headers: { "Content-Type": "application/json" }
     request req, (error, response, body) ->
       if error
         console.log error
       else
-        rec = JSON.parse(body)
-        Character.find {id: rec.id}, (record) ->
-          socket.broadcast.emit 'newUser', JSON.stringify(record)
-
-
-Character =
-
-  create: (attrs, callback) ->
-    #... 
+        return body
 
   delete: (id, callback) ->
     url = "#{lyr_config_characters.api_url}/#{id}?key=#{lyr_config_characters.acl.delete}"
