@@ -56,22 +56,12 @@ io.sockets.on 'connection', (socket) ->
       if error
         console.log error
       else
-        # then broadcast it
         rec = JSON.parse(body)
-        get_url = "https://api.spacialdb.com/1/users/shoaib_burq/layers/characters/#{rec.id}?key=#{lyr_config_characters.acl.get}"
-        req =
-          method: "GET", uri: get_url 
-          headers: {"Content-Type": "application/json"}
-        request req, (error, response, body) ->
-          if error
-            console.log error
-          else
-            socket.broadcast.emit 'newUser', body
+        Character.find {id: rec.id}, (record) ->
+          socket.broadcast.emit 'newUser', JSON.stringify(record)
 
 
 Character =
-  find_by_id: (id, callback) ->
-    #... 
 
   create: (attrs, callback) ->
     #... 
@@ -93,8 +83,12 @@ Character =
     q =
       "operator": "or"
       "properties": attrs
-    url =
-      "#{lyr_config_characters.api_url}?key=#{lyr_config_characters.acl.get}&input=#{encodeURIComponent(JSON.stringify(q))}"
+    if _.contains(_.keys(attrs), "id")
+      url = "#{lyr_config_characters.api_url}/#{attrs.id}?key=#{lyr_config_characters.acl.get}"
+    else
+      url =
+        "#{lyr_config_characters.api_url}?key=#{lyr_config_characters.acl.get}&input=#{encodeURIComponent(JSON.stringify(q))}"
+
     console.log "\nGET :: #{url}\n"
     req =
       method: "GET", uri: url 
