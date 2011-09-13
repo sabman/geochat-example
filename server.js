@@ -27,7 +27,7 @@
       return res.end(data, 'utf8');
     });
   });
-  server.listen(3000);
+  server.listen(process.env.PORT || 3000);
   io = require('socket.io').listen(server);
   io.sockets.on('connection', function(socket) {
     var clientId;
