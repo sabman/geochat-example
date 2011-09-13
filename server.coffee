@@ -55,6 +55,7 @@ io.sockets.on 'connection', (socket) ->
 
 Character =
   create: (attrs, callback) ->
+    console.log "=> create #{JSON.stringify(attrs)}"
     # post the data to SpacialDB
     post_url = "#{lyr_config_characters.api_url}?key=#{lyr_config_characters.acl.post}"
     req =
@@ -64,9 +65,11 @@ Character =
       if error
         console.log error
       else
-        return body
+        console.log "<= create #{body}"
+        return callback(body)
 
   delete: (id, callback) ->
+    console.log "=> delete #{id}"
     url = "#{lyr_config_characters.api_url}/#{id}?key=#{lyr_config_characters.acl.delete}"
     req =
       method: "DELETE", url: url
@@ -75,30 +78,24 @@ Character =
     request req, (error, response, body) ->
       if error
         console.log error
-        return false
       else
-        return true
+        console.log "<= delete"
+        return callback(JSON.parse(body))
 
   find: (attrs, callback) ->
-    q =
-      "operator": "or"
-      "properties": attrs
+    console.log "=> find #{JSON.stringify(attrs)}"
+    q = { "operator": "or",  "properties": attrs }
     if _.contains(_.keys(attrs), "id")
       url = "#{lyr_config_characters.api_url}/#{attrs.id}?key=#{lyr_config_characters.acl.get}"
     else
-      url =
-        "#{lyr_config_characters.api_url}?key=#{lyr_config_characters.acl.get}&input=#{encodeURIComponent(JSON.stringify(q))}"
-
-    console.log "\nGET :: #{url}\n"
-    req =
-      method: "GET", uri: url 
-      headers: {"Content-Type": "application/json"}
+      url = "#{lyr_config_characters.api_url}?key=#{lyr_config_characters.acl.get}&input=#{encodeURIComponent(JSON.stringify(q))}"
+    req = { method: "GET", uri: url, headers: {"Content-Type": "application/json"} }
 
     request req, (error, response, body) ->
       if error
         console.log error
       else
-        console.log 'Character.find'
+        console.log "<= find #{body}"
         if body
           return callback(JSON.parse(body))
         else
