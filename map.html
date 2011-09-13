@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+    <title>GeoChat :: FOSS4G 2011</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/ui-lightness/jquery-ui.css" rel="stylesheet" type="text/css"/>
+    <link rel="stylesheet" href="http://jqueryui.com/demos/demos.css" type="text/css" media="screen" title="no title" charset="utf-8">
+    <style> 
+      body { font-size: 62.5%; }
+      label, input, textarea { display:block; }
+      textarea.text, input.text { margin-bottom:6px; margin-top:6px; width:95%; padding: .4em; }
+      fieldset { padding:0; border:0; margin-top:25px; }
+      h1 { font-size: 1.2em; margin: .6em 0; }
+      div#users-contain { width: 350px; margin: 20px 0; }
+      div#users-contain table { margin: 1em 0; border-collapse: collapse; width: 100%; }
+      div#users-contain table td, div#users-contain table th { border: 1px solid #eee; padding: .6em 10px; text-align: left; }
+      .ui-dialog .ui-state-error { padding: .3em; }
+      .validateTips { font-size: 0.9em; }
+      button#create-user {float:right; }
+      button#broadcast { display: block; }
+      div#chat{display:none;}
+      #map{height: 300px;}
+      .demo{margin: 10px}
+    </style> 
+
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
+    <script src="http://jashkenas.github.com/coffee-script/extras/coffee-script.js"></script>
+    <script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?sensor=false"></script> 
+
+    <link rel="stylesheet" href="http://leaflet.cloudmade.com/dist/leaflet.css" type="text/css" media="screen" title="no title" charset="utf-8">
+    <script src="http://leaflet.cloudmade.com/dist/leaflet.js" type="text/javascript" charset="utf-8"></script>
+
+    <script type="text/coffeescript">
+
+      jQuery ($) ->
+
+        geocoder = new google.maps.Geocoder()
+
+        $("button").button()
+        $("#dialog").dialog({
+          autoOpen: false
+          buttons:
+            "Add User": () ->
+              address = []
+              $('#address input').each ->
+                address = address.concat( $(this).val() )
+              geocoder.geocode { 'address': address.join(', ') }, (results, status) ->
+                if (status == google.maps.GeocoderStatus.OK)
+                  lat = results[0].geometry.location.lat()
+                  lng = results[0].geometry.location.lng()
+                  markerLocation = new L.LatLng(lat, lng)
+                  marker = new L.Marker(markerLocation)
+                  map.addLayer(marker)
+                  map.setView(markerLocation, 16)
+                  socket.emit 'addUser',
+                    "name": $( '#name' ).val()
+                    "email": $( '#email' ).val()
+                    "location": address.join(', ')
+                    "lat": lat
+                    "lng": lng 
+                  $( '#chat' ).show('slide', 1000)
+                  $( '#create-user' ).hide()
+                  $( '#dialog' ).dialog( 'close' )
+                else
+                  alert("Geocode was not successful for the following reason: " + status)
+            "Cancel": () ->
+              $( this ).dialog( "close" )
+        })
+
+        $status = $ '#status'
+        socket = io.connect()
+
+        socket.on 'connect', ->
+          $status.text 'Connected'
+
+        socket.on 'disconnect', ->
+          $status.text 'Disconnected'
+
+        socket.on 'reconnecting', (seconds) ->
+          $status.text "Reconnecting in #{seconds} seconds"
+
+        socket.on 'reconnect', ->
+          $status.text 'Reconnected'
+
+        socket.on 'reconnect_failed', ->
+          $status.text 'Failed to reconnect'
+
+        socket.on 'message', (message) ->
+          res = JSON.parse(message)
+          conv = res.conversation
+          geom = res.user.features[0].geometry
+          prop = res.user.features[0].properties
+          popup = new L.Popup()
+          popup.setLatLng(new L.LatLng(geom.coordinates[1],geom.coordinates[0]))
+          popup.setContent("<strong>#{prop.name}:</strong> #{conv}")
+          map.openPopup(popup);
+
+        socket.on 'secret', (message) ->
+          console.log message
+
+        socket.on 'newUser', (message) ->
+          geojsonObj = JSON.parse(message)
+          users.concat geojsonObj
+          circleLocation = new L.LatLng(geojsonObj.geometry.coordinates[1],geojsonObj.geometry.coordinates[0])
+          circleOptions = {color: '#f03', opacity: 0.7}
+          userLayer = new L.Circle(circleLocation, 500, circleOptions)
+          userLayer.bindPopup "<strong>#{geojsonObj.properties.name}</strong> (#{geojsonObj.properties.email})</br>from #{geojsonObj.properties.location}"
+          map.setView(circleLocation, 15).addLayer(userLayer)
+
+        $input = $ 'textarea'
+
+        $('button#broadcast').click ->
+          socket.emit 'broadcast', $input.val()
+          $input.val('').focus()
+
+        $( "#create-user" )
+          .button()
+          .click ->
+            $( "#dialog" ).dialog( "open" )
+
+        map = new L.Map("map")
+        cloudmadeUrl = "http://{s}.tile.cloudmade.com/BC9A493B41014CAABB98F0471D759707/997/256/{z}/{x}/{y}.png" 
+        cloudmadeAttrib = "Map data &copy; 2011 OpenStreetMap contributors, Imagery &copy; 2011 CloudMade" 
+        cloudmade = new L.TileLayer(cloudmadeUrl, { maxZoom: 18, attribution: cloudmadeAttrib })
+        town = new L.LatLng(52.52267, 13.41293)
+        map.setView(town, 8).addLayer(cloudmade)
+
+        get_location = ->
+          navigator.geolocation.getCurrentPosition(show_map)
+
+        show_map = (position) ->
+          latitude = position.coords.latitude
+          longitude = position.coords.longitude
+          markerLocation = new L.LatLng(latitude, longitude)
+          marker = new L.Marker(markerLocation)
+          map.addLayer(marker)
+          map.setView(markerLocation, 16)
+
+        users = []
+
+    </script>
+  </head>
+  <body id="socket.io.demo" onload="">
+    <div class="demo">
+    <button id="create-user">Create new user</button> 
+    <h2>Socket.IO geo-chat demo</h2>
+    <div id="map"></div> <!-- width equals available horizontal space by default -->
+
+    <div id="chat">
+      <textarea class="text" autofocus="autofocus" rows="1" cols="80"></textarea>
+      <button id="broadcast" text='broadcast' type="button">Send</button>
+    </div>
+
+    </div> <!-- div class="demo" -->
+    <p>Status: <span id="status">Undefined</span></p>
+  </body>
+
+  <div id="dialog" title="Create new user"> 
+    <p class="validateTips">All form fields are required.</p> 
+    <form> 
+    <fieldset> 
+      <label for="name">Name</label> 
+      <input type="text" name="name" id="name" class="text ui-widget-content ui-corner-all" /> 
+      <label for="email">Email</label> 
+      <input type="text" name="email" id="email" class="text ui-widget-content ui-corner-all" /> 
+      <div id='address'>
+        <h3>Address</h3>
+        <label for="location">Street</label> 
+        <input type="text" name="street" id="street" value="" class="text ui-widget-content ui-corner-all" />
+        <label for="location">City</label> 
+        <input type="text" name="city" id="city" value="" class="text ui-widget-content ui-corner-all" />
+        <label for="location">Country</label> 
+        <input type="text" name="country" id="country" value="" class="text ui-widget-content ui-corner-all" />
+      </div>
+    </fieldset> 
+    </form> 
+  </div> <!-- create new user -->
+</html>
