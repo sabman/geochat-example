@@ -29,11 +29,12 @@ io.sockets.on 'connection', (socket) ->
 
   socket.on 'disconnect', (message) ->
     Character.find {clientId: socket.id}, (record) ->
-      if record.features
-        Character.delete record.features[0].id, (res) ->
-          return true
-      else
-        return false
+      # remove del temporarily ...
+      # if record.features
+      #   Character.delete record.features[0].id, (res) ->
+      #     return true
+      # else
+      #   return false
 
   socket.on 'publish', (message) ->
     # ...
