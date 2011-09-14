@@ -80,7 +80,7 @@ Character =
         console.log error
       else
         console.log "<= delete"
-        return callback(JSON.parse(body))
+        return callback(body) # body is empty
 
   find: (attrs, callback) ->
     console.log "=> find #{JSON.stringify(attrs)}"
