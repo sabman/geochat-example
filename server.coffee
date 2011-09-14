@@ -67,7 +67,7 @@ Character =
         console.log error
       else
         console.log "<= create #{body}"
-        return callback(body)
+        callback(body)
 
   delete: (id, callback) ->
     console.log "=> delete #{id}"
@@ -81,7 +81,7 @@ Character =
         console.log error
       else
         console.log "<= delete"
-        return callback(body) # body is empty
+        callback(body) # body is empty
 
   find: (attrs, callback) ->
     console.log "=> find #{JSON.stringify(attrs)}"
@@ -98,6 +98,6 @@ Character =
       else
         console.log "<= find #{body}"
         if body
-          return callback(JSON.parse(body))
+          callback(JSON.parse(body))
         else
-          return {}
+          callback({})
