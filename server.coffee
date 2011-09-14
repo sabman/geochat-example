@@ -53,7 +53,7 @@ io.sockets.on 'connection', (socket) ->
       Character.find {id: new_rec.id}, (record) ->
         socket.broadcast.emit 'newUser', JSON.stringify(record)
 
-
+# love nodejs!
 Character =
   create: (attrs, callback) ->
     console.log "=> create #{JSON.stringify(attrs)}"
